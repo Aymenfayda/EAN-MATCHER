@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EAN Matcher Pro</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+:root{
+  --bg:#0f0f0f;--surface:#181818;--surface2:#222;--surface3:#2a2a2a;
+  --border:#2e2e2e;--border2:#3a3a3a;--border3:#484848;
+  --text:#e8e8e8;--text2:#888;--text3:#555;
+  --green:#3ddc84;--green-dim:#1a3d2a;--green-text:#2ab86a;
+  --amber:#f0a500;--amber-dim:#3a2800;
+  --red:#e05252;--red-dim:#3a1818;
+  --blue:#5b9cf6;--blue-dim:#162040;
+  --purple:#a78bfa;--purple-dim:#1e1635;
+  --r:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;min-height:100vh;padding:32px 24px 80px}
+.app{max-width:1020px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;border-bottom:1px solid var(--border);padding-bottom:18px}
+header h1{font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:500;letter-spacing:-.5px}
+.version{font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;background:var(--surface2);padding:3px 8px;border-radius:3px;border:1px solid var(--border)}
+.norm-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);margin-bottom:20px;display:flex;gap:4px 20px;flex-wrap:wrap;align-items:center}
+.norm-bar strong{color:var(--text3);font-weight:500;margin-right:4px}
+.norm-ex{display:inline-flex;align-items:center;gap:5px}
+.norm-ex .from{color:var(--text3)}
+.norm-ex .arr{color:var(--border3)}
+.norm-ex .to{color:var(--green)}
+.section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:14px}
+.section-title{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.drop-zone{border:1px dashed var(--border2);border-radius:var(--r);padding:22px 14px;text-align:center;cursor:pointer;position:relative;transition:border-color .15s,background .15s}
+.drop-zone:hover{border-color:var(--blue);background:var(--blue-dim)}
+.drop-zone.loaded{border-color:var(--green);border-style:solid;background:var(--green-dim)}
+.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-icon{font-size:20px;margin-bottom:6px;color:var(--text3)}
+.drop-text{font-size:12px;color:var(--text2)}
+.drop-formats{font-size:11px;color:var(--text3);margin-top:4px}
+.drop-name{font-size:12px;font-weight:500;color:var(--green);font-family:'IBM Plex Mono',monospace}
+.drop-sub{font-size:11px;color:var(--text3);margin-top:3px}
+.key-builder{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:14px}
+.key-builder-title{font-size:11px;color:var(--text2);margin-bottom:10px;font-family:'IBM Plex Mono',monospace}
+.key-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.key-row:last-child{margin-bottom:0}
+.key-file-label{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);min-width:80px}
+select{padding:6px 8px;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-size:12px;font-family:'IBM Plex Sans',sans-serif;outline:none;cursor:pointer}
+select:focus{border-color:var(--blue)}
+.sep-input{width:48px;padding:6px 8px;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-size:12px;font-family:'IBM Plex Mono',monospace;text-align:center}
+.preview-key{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--purple);background:var(--purple-dim);border:1px solid #2d2050;border-radius:var(--r);padding:4px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px}
+.map-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.map-label{font-size:12px;color:var(--text2);min-width:120px;font-family:'IBM Plex Mono',monospace}
+.arrow{font-size:13px;color:var(--text3)}
+.norm-options{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.norm-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1px solid var(--border2);font-size:11px;cursor:pointer;transition:all .12s;color:var(--text2);background:transparent;font-family:'IBM Plex Mono',monospace}
+.norm-pill.active{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.norm-pill input{display:none}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:var(--r);font-size:13px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text);transition:background .12s,border-color .12s}
+.btn:hover{background:var(--surface2);border-color:var(--text3)}
+.btn:active{transform:scale(.98)}
+.btn-run{background:var(--green);color:#0a1a10;border-color:var(--green);font-weight:500}
+.btn-run:hover{background:#5febb0;border-color:#5febb0}
+.btn-csv{background:var(--blue);color:#08122a;border-color:var(--blue);font-weight:500}
+.btn-csv:hover{background:#7ab4ff}
+.btn-xlsx{background:var(--green-text);color:#061a0e;border-color:var(--green-text);font-weight:500}
+.btn-xlsx:hover{background:#3ddc84}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}
+.stat{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px;text-align:center}
+.stat-n{font-size:24px;font-weight:300;font-family:'IBM Plex Mono',monospace}
+.stat-l{font-size:10px;color:var(--text2);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+.s-matched .stat-n{color:var(--green)}
+.s-notfound .stat-n{color:var(--amber)}
+.s-conflict .stat-n{color:var(--red)}
+.s-rate .stat-n{color:var(--blue)}
+.table-wrap{overflow-x:auto;max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);background:var(--bg)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:var(--surface2);padding:8px 12px;text-align:left;font-weight:500;font-size:10px;color:var(--text2);position:sticky;top:0;z-index:1;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+td{padding:7px 12px;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;font-family:'IBM Plex Mono',monospace;font-size:11px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:500;font-family:'IBM Plex Mono',monospace}
+.badge-ok{background:var(--green-dim);color:var(--green)}
+.badge-warn{background:var(--amber-dim);color:var(--amber)}
+.badge-err{background:var(--red-dim);color:var(--red)}
+.row-flex{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px;flex-wrap:wrap}
+.filter-tabs{display:flex;gap:5px;flex-wrap:wrap}
+.tab{padding:5px 12px;border-radius:var(--r);font-size:11px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'IBM Plex Mono',monospace;transition:all .12s}
+.tab:hover{border-color:var(--text3);color:var(--text)}
+.tab.active{border-color:var(--text);color:var(--text);background:var(--surface2)}
+.export-btns{display:flex;gap:6px}
+.hidden{display:none}
+.info{font-size:11px;color:var(--text3);margin-top:8px;font-family:'IBM Plex Mono',monospace}
+.help{font-size:11px;color:var(--text3);margin-top:6px;line-height:1.6}
+.tag{display:inline-block;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:1px 6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2)}
+.progress-wrap{height:3px;background:var(--border);border-radius:2px;margin-top:10px;overflow:hidden;display:none}
+.progress-fill{height:100%;background:var(--green);width:0%;transition:width .2s}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <h1>EAN Matcher Pro</h1>
+  <span class="version">v4.0 — CSV · XLSX · XLS</span>
+</header>
+
+<div class="norm-bar">
+  <strong>normalisation :</strong>
+  <span class="norm-ex"><span class="from">N°3 / 15,5°</span><span class="arr">→</span><span class="to">N3</span></span>
+  <span class="norm-ex"><span class="from">Hybride N°3</span><span class="arr">→</span><span class="to">N3</span></span>
+  <span class="norm-ex"><span class="from">60° - 12°</span><span class="arr">→</span><span class="to">60</span></span>
+  <span class="norm-ex"><span class="from">Bois N°5</span><span class="arr">→</span><span class="to">N5</span></span>
+  <span class="norm-ex"><span class="from">56 cm</span><span class="arr">→</span><span class="to">56cm</span></span>
+</div>
+
+<!-- 01 FICHIERS -->
+<div class="section">
+  <div class="section-title">01 — Charger les fichiers</div>
+  <div class="grid2">
+    <div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Fichier Magmi <span style="color:var(--text3)">(à enrichir)</span></div>
+      <div class="drop-zone" id="dz1">
+        <input type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" id="f1">
+        <div class="drop-icon">↧</div>
+        <div class="drop-text" id="dt1">Glissez ou cliquez</div>
+        <div class="drop-formats">CSV · TSV · XLSX · XLS</div>
+      </div>
+      <div class="progress-wrap" id="pw1"><div class="progress-fill" id="pf1"></div></div>
+    </div>
+    <div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Fichier fournisseur <span style="color:var(--text3)">(source EAN)</span></div>
+      <div class="drop-zone" id="dz2">
+        <input type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" id="f2">
+        <div class="drop-icon">↧</div>
+        <div class="drop-text" id="dt2">Glissez ou cliquez</div>
+        <div class="drop-formats">CSV · TSV · XLSX · XLS</div>
+      </div>
+      <div class="progress-wrap" id="pw2"><div class="progress-fill" id="pf2"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 02 CLÉ -->
+<div class="section hidden" id="col-card">
+  <div class="section-title">02 — Clé de matching</div>
+
+  <div class="key-builder">
+    <div class="key-builder-title">Fichier Magmi — colonnes à concaténer pour former la clé</div>
+    <div class="key-row">
+      <span class="key-file-label">Colonne 1</span>
+      <select id="key1a" style="flex:1"></select>
+    </div>
+    <div class="key-row">
+      <span class="key-file-label">Colonne 2 <span style="color:var(--text3)">(opt.)</span></span>
+      <select id="key1b" style="flex:1"></select>
+      <span style="font-size:11px;color:var(--text3)">séparateur</span>
+      <input class="sep-input" id="sep1" value="-">
+    </div>
+    <div class="key-row">
+      <span class="key-file-label">Colonne 3 <span style="color:var(--text3)">(opt.)</span></span>
+      <select id="key1c" style="flex:1"></select>
+    </div>
+    <div class="key-row" style="margin-top:6px">
+      <span class="key-file-label" style="color:var(--text3)">aperçu clé</span>
+      <span class="preview-key" id="prev-key1">—</span>
+    </div>
+  </div>
+
+  <div class="key-builder">
+    <div class="key-builder-title">Fichier fournisseur — colonnes à concaténer pour former la clé</div>
+    <div class="key-row">
+      <span class="key-file-label">Colonne 1</span>
+      <select id="key2a" style="flex:1"></select>
+    </div>
+    <div class="key-row">
+      <span class="key-file-label">Colonne 2 <span style="color:var(--text3)">(opt.)</span></span>
+      <select id="key2b" style="flex:1"></select>
+      <span style="font-size:11px;color:var(--text3)">séparateur</span>
+      <input class="sep-input" id="sep2" value="-">
+    </div>
+    <div class="key-row">
+      <span class="key-file-label">Colonne 3 <span style="color:var(--text3)">(opt.)</span></span>
+      <select id="key2c" style="flex:1"></select>
+    </div>
+    <div class="key-row" style="margin-top:6px">
+      <span class="key-file-label" style="color:var(--text3)">aperçu clé</span>
+      <span class="preview-key" id="prev-key2">—</span>
+    </div>
+  </div>
+
+  <p class="help">Laissez Colonne 2 et Colonne 3 sur <span class="tag">— aucune —</span> pour une clé simple. Pour matcher par SKU + taille : Colonne 1 = <span class="tag">manufacturer_sku</span>, Colonne 2 = <span class="tag">size</span> / <span class="tag">raw_size</span>. La normalisation s'applique sur chaque partie de la clé.</p>
+
+  <!-- NORMALISATION -->
+  <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px;font-family:'IBM Plex Mono',monospace">Options de normalisation</div>
+    <div class="norm-options">
+      <label class="norm-pill active" id="pill-n"><input type="checkbox" id="norm-n" checked> N°X → NX</label>
+      <label class="norm-pill active" id="pill-angle"><input type="checkbox" id="norm-angle" checked> 60°-12° → 60</label>
+      <label class="norm-pill active" id="pill-words"><input type="checkbox" id="norm-words" checked> mots génériques</label>
+      <label class="norm-pill active" id="pill-accents"><input type="checkbox" id="norm-accents" checked> accents</label>
+      <label class="norm-pill active" id="pill-case"><input type="checkbox" id="norm-case" checked> lowercase</label>
+      <label class="norm-pill active" id="pill-spaces"><input type="checkbox" id="norm-spaces" checked> espaces/ponctuation</label>
+    </div>
+  </div>
+
+  <!-- EAN -->
+  <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px;font-family:'IBM Plex Mono',monospace">Colonnes EAN</div>
+    <div class="map-row">
+      <span class="map-label">EAN cible (Magmi)</span>
+      <select id="ean-target" style="flex:1"></select>
+      <span class="arrow">←</span>
+      <span class="map-label">EAN source (fourn.)</span>
+      <select id="ean-source" style="flex:1"></select>
+    </div>
+  </div>
+
+  <div style="margin-top:16px">
+    <button class="btn btn-run" id="run-btn">Lancer le matching →</button>
+  </div>
+</div>
+
+<!-- 03 RÉSULTATS -->
+<div class="hidden" id="result-section">
+  <div class="stats">
+    <div class="stat"><div class="stat-n" id="s-total">0</div><div class="stat-l">Total lignes</div></div>
+    <div class="stat s-matched"><div class="stat-n" id="s-matched">0</div><div class="stat-l">Matchées</div></div>
+    <div class="stat s-notfound"><div class="stat-n" id="s-notfound">0</div><div class="stat-l">Non trouvées</div></div>
+    <div class="stat s-conflict"><div class="stat-n" id="s-conflict">0</div><div class="stat-l">Conflits EAN</div></div>
+    <div class="stat s-rate"><div class="stat-n" id="s-rate">0%</div><div class="stat-l">Taux match</div></div>
+  </div>
+
+  <div class="section">
+    <div class="row-flex">
+      <div class="filter-tabs">
+        <button class="tab active" data-filter="all">Tous</button>
+        <button class="tab" data-filter="matched">Matchées</button>
+        <button class="tab" data-filter="not_found">Non trouvées</button>
+        <button class="tab" data-filter="conflict">Conflits</button>
+      </div>
+      <div class="export-btns">
+        <button class="btn btn-csv" id="export-csv">Export CSV ↓</button>
+        <button class="btn btn-xlsx" id="export-xlsx">Export Excel ↓</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead id="t-head"></thead>
+        <tbody id="t-body"></tbody>
+      </table>
+    </div>
+    <p class="info" id="preview-note"></p>
+  </div>
+</div>
+
+</div>
+
+<script>
+const state={data1:[],data2:[],headers1:[],headers2:[],results:[],filterMode:'all',cols:{}};
+
+function isExcel(name){return /\.(xlsx|xls)$/i.test(name);}
+
+function parseFile(file,num,cb){
+  const pw=document.getElementById('pw'+num);
+  const pf=document.getElementById('pf'+num);
+  pw.style.display='block';pf.style.width='15%';
+  const r=new FileReader();
+  if(isExcel(file.name)){
+    r.onload=e=>{
+      pf.style.width='50%';
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array',cellText:true,cellDates:false});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        pf.style.width='75%';
+        const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        const headers=(raw[0]||[]).map(h=>String(h||'').trim());
+        const rows=raw.slice(1)
+          .filter(r=>r.some(c=>String(c).trim()!==''))
+          .map(r=>headers.map((_,i)=>String(r[i]===undefined?'':r[i]).trim()));
+        pf.style.width='100%';
+        setTimeout(()=>{pw.style.display='none';cb({headers,rows});},200);
+      }catch(err){alert('Erreur lecture Excel : '+err.message);pw.style.display='none';}
+    };
+    r.readAsArrayBuffer(file);
+  }else{
+    r.onload=e=>{
+      pf.style.width='60%';
+      const parsed=parseCSV(e.target.result);
+      pf.style.width='100%';
+      setTimeout(()=>{pw.style.display='none';cb(parsed);},200);
+    };
+    r.readAsText(file,'UTF-8');
+  }
+}
+
+function parseCSV(text){
+  const lines=text.trim().split(/\r?\n/);
+  if(!lines.length)return{headers:[],rows:[]};
+  const seps=['\t',';',','];
+  let best=',',bestCount=0;
+  for(const s of seps){
+    const c=(lines[0].match(new RegExp('\\'+s,'g'))||[]).length;
+    if(c>bestCount){bestCount=c;best=s;}
+  }
+  const headers=parseRow(lines[0],best);
+  const rows=lines.slice(1).filter(l=>l.trim()).map(l=>parseRow(l,best));
+  return{headers,rows};
+}
+
+function parseRow(line,sep){
+  const res=[];let cur='';let inQ=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(c==='"'){inQ=!inQ;}
+    else if(c===sep&&!inQ){res.push(cur.trim());cur='';}
+    else cur+=c;
+  }
+  res.push(cur.trim());
+  return res;
+}
+
+function rowToObj(headers,row){
+  const o={};
+  headers.forEach((h,i)=>o[h]=String(row[i]===undefined?'':row[i]).trim());
+  return o;
+}
+
+function extractEAN(val){
+  if(!val)return'';
+  const clean=String(val).replace(/\s/g,'');
+  const m=clean.match(/\d{8,13}/g);
+  if(!m)return'';
+  const ean13=m.find(e=>e.length===13);
+  if(ean13)return ean13;
+  const ean8=m.find(e=>e.length===8);
+  if(ean8)return ean8;
+  return m.sort((a,b)=>b.length-a.length)[0]||'';
+}
+
+function normalizeVal(s){
+  if(!s)return'';
+  let v=String(s);
+
+  if(document.getElementById('norm-accents').checked)
+    v=v.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+  if(document.getElementById('norm-case').checked)
+    v=v.toLowerCase();
+
+  // Règle N°X : extraire uniquement le numéro
+  if(document.getElementById('norm-n').checked){
+    const nMatch=v.match(/n[o°º]\.?\s*(\d+)/i);
+    if(nMatch)return'n'+nMatch[1];
+  }
+
+  // Règle angle1 - angle2 : garder premier
+  if(document.getElementById('norm-angle').checked){
+    const ang2=v.match(/^(\d+(?:[.,]\d+)?)\s*°?\s*[-\/]\s*\d/);
+    if(ang2)return ang2[1];
+    const ang1=v.match(/^(\d+(?:[.,]\d+)?)\s*°\s*$/);
+    if(ang1)return ang1[1];
+  }
+
+  // Mots génériques
+  if(document.getElementById('norm-words').checked){
+    v=v.replace(/\b(bois|hybride|gaucher|droitier|femme|homme|regular|stiff|light|graphite|acier|steel|flex|shaft|utility)\b/g,'');
+  }
+
+  // Espaces et ponctuation
+  if(document.getElementById('norm-spaces').checked){
+    v=v.replace(/[°\s\/\-\.,]/g,'').trim();
+  }
+
+  return v||String(s).toLowerCase().trim();
+}
+
+function buildKey(obj,colA,colB,colC,sep){
+  const parts=[];
+  const a=normalizeVal(obj[colA]||'');
+  if(a)parts.push(a);
+  if(colB&&colB!=='__none__'){
+    const b=normalizeVal(obj[colB]||'');
+    if(b)parts.push(b);
+  }
+  if(colC&&colC!=='__none__'){
+    const c=normalizeVal(obj[colC]||'');
+    if(c)parts.push(c);
+  }
+  return parts.join(sep||'-');
+}
+
+function populateSel(sel,headers,preferred,allowNone){
+  sel.innerHTML='';
+  if(allowNone){
+    const o=document.createElement('option');
+    o.value='__none__';o.textContent='— aucune —';
+    sel.appendChild(o);
+  }
+  let found=false;
+  headers.forEach(h=>{
+    const o=document.createElement('option');
+    o.value=h;o.textContent=h;
+    const match=preferred.some(p=>h.toLowerCase()===p||h.toLowerCase().includes(p));
+    if(match&&!found){o.selected=true;found=true;}
+    sel.appendChild(o);
+  });
+}
+
+function updateKeyPreview(num){
+  if(!state['data'+num].length)return;
+  const obj=rowToObj(state['headers'+num],state['data'+num][0]);
+  const a=document.getElementById('key'+num+'a').value;
+  const b=document.getElementById('key'+num+'b').value;
+  const c=document.getElementById('key'+num+'c').value;
+  const sep=document.getElementById('sep'+num).value;
+  document.getElementById('prev-key'+num).textContent=buildKey(obj,a,b,c,sep)||'—';
+}
+
+function setupDrop(dzId,fileId,textId,num){
+  const fi=document.getElementById(fileId);
+  const dz=document.getElementById(dzId);
+  const dt=document.getElementById(textId);
+  fi.addEventListener('change',e=>{
+    const f=e.target.files[0];if(!f)return;
+    parseFile(f,num,parsed=>{
+      state['data'+num]=parsed.rows;
+      state['headers'+num]=parsed.headers;
+      dz.classList.add('loaded');
+      dt.innerHTML='<span class="drop-name">'+f.name+'</span><div class="drop-sub">'+parsed.rows.length+' lignes · '+parsed.headers.length+' colonnes</div>';
+      checkReady();
+    });
+  });
+}
+
+function checkReady(){
+  if(!state.headers1.length||!state.headers2.length)return;
+  document.getElementById('col-card').classList.remove('hidden');
+  const h1=state.headers1,h2=state.headers2;
+
+  populateSel(document.getElementById('key1a'),h1,['manufacturer_sku','sku'],false);
+  populateSel(document.getElementById('key1b'),h1,['size'],true);
+  populateSel(document.getElementById('key1c'),h1,[],true);
+  populateSel(document.getElementById('key2a'),h2,['manufacturer_sku','sku'],false);
+  populateSel(document.getElementById('key2b'),h2,['raw_size','size'],true);
+  populateSel(document.getElementById('key2c'),h2,[],true);
+  populateSel(document.getElementById('ean-target'),h1,['ean'],false);
+  populateSel(document.getElementById('ean-source'),h2,['ean_code','ean'],false);
+
+  // Colonnes optionnelles : forcer aucune par défaut, puis tenter auto-detect
+  document.getElementById('key1b').value='__none__';
+  document.getElementById('key1c').value='__none__';
+  document.getElementById('key2b').value='__none__';
+  document.getElementById('key2c').value='__none__';
+  if(h1.some(h=>h.toLowerCase()==='size'))document.getElementById('key1b').value='size';
+  if(h2.some(h=>h.toLowerCase()==='raw_size'))document.getElementById('key2b').value='raw_size';
+  else if(h2.some(h=>h.toLowerCase()==='size'))document.getElementById('key2b').value='size';
+
+  ['key1a','key1b','key1c','sep1'].forEach(id=>{
+    document.getElementById(id).addEventListener('change',()=>updateKeyPreview(1));
+  });
+  ['key2a','key2b','key2c','sep2'].forEach(id=>{
+    document.getElementById(id).addEventListener('change',()=>updateKeyPreview(2));
+  });
+  document.querySelectorAll('.norm-pill input').forEach(cb=>{
+    cb.addEventListener('change',e=>{
+      e.target.closest('.norm-pill').classList.toggle('active',e.target.checked);
+      updateKeyPreview(1);updateKeyPreview(2);
+    });
+  });
+  updateKeyPreview(1);
+  updateKeyPreview(2);
+}
+
+setupDrop('dz1','f1','dt1',1);
+setupDrop('dz2','f2','dt2',2);
+
+/* ─── MATCHING ──────────────────────────────── */
+document.getElementById('run-btn').addEventListener('click',()=>{
+  const k1a=document.getElementById('key1a').value;
+  const k1b=document.getElementById('key1b').value;
+  const k1c=document.getElementById('key1c').value;
+  const sep1=document.getElementById('sep1').value||'-';
+  const k2a=document.getElementById('key2a').value;
+  const k2b=document.getElementById('key2b').value;
+  const k2c=document.getElementById('key2c').value;
+  const sep2=document.getElementById('sep2').value||'-';
+  const et=document.getElementById('ean-target').value;
+  const es=document.getElementById('ean-source').value;
+  state.cols={k1a,k1b,k1c,sep1,et};
+
+  // Construire map EAN
+  const eanMap={};
+  state.data2.forEach(row=>{
+    const obj=rowToObj(state.headers2,row);
+    const key=buildKey(obj,k2a,k2b,k2c,sep2);
+    const ean=extractEAN(obj[es]||'');
+    if(!key||!ean)return;
+    if(!eanMap[key])eanMap[key]=[];
+    if(!eanMap[key].includes(ean))eanMap[key].push(ean);
+  });
+
+  let matched=0,notfound=0,conflict=0;
+  state.results=state.data1.map(row=>{
+    const obj=rowToObj(state.headers1,row);
+    const key=buildKey(obj,k1a,k1b,k1c,sep1);
+    const eans=eanMap[key]||[];
+    let status,newEan;
+    if(!eans.length){status='not_found';newEan='';notfound++;}
+    else if(eans.length>1){status='conflict';newEan='';conflict++;}
+    else{status='matched';newEan=eans[0];matched++;}
+    const out={...obj};
+    out[et]=newEan;
+    out['__status']=status;
+    out['__key_composite']=key;
+    out['__eans_trouves']=eans.join(' | ');
+    return out;
+  });
+
+  const total=state.results.length;
+  document.getElementById('s-total').textContent=total;
+  document.getElementById('s-matched').textContent=matched;
+  document.getElementById('s-notfound').textContent=notfound;
+  document.getElementById('s-conflict').textContent=conflict;
+  document.getElementById('s-rate').textContent=total?Math.round(matched/total*100)+'%':'0%';
+  state.filterMode='all';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.filter==='all'));
+  renderTable();
+  document.getElementById('result-section').classList.remove('hidden');
+  document.getElementById('result-section').scrollIntoView({behavior:'smooth'});
+});
+
+/* ─── TABLE ─────────────────────────────────── */
+function renderTable(){
+  const{k1a,k1b,k1c,sep1,et}=state.cols;
+  const keyCols=[k1a];
+  if(k1b&&k1b!=='__none__')keyCols.push(k1b);
+  if(k1c&&k1c!=='__none__')keyCols.push(k1c);
+  const cols=['__status',...keyCols,'__key_composite',et,'__eans_trouves'];
+  const labels={'__status':'statut','__key_composite':'clé_composite','__eans_trouves':'eans_trouvés'};
+  document.getElementById('t-head').innerHTML='<tr>'+cols.map(c=>'<th>'+(labels[c]||c)+'</th>').join('')+'</tr>';
+  const filtered=state.results.filter(r=>state.filterMode==='all'||r['__status']===state.filterMode);
+  document.getElementById('t-body').innerHTML=filtered.slice(0,500).map(r=>{
+    const st=r['__status'];
+    const bc=st==='matched'?'badge-ok':st==='conflict'?'badge-err':'badge-warn';
+    const bl=st==='matched'?'OK':st==='conflict'?'CONFLIT':'MANQUANT';
+    return'<tr>'+cols.map(c=>{
+      if(c==='__status')return'<td><span class="badge '+bc+'">'+bl+'</span></td>';
+      return'<td title="'+(r[c]||'')+'">'+(r[c]||'')+'</td>';
+    }).join('')+'</tr>';
+  }).join('');
+  document.getElementById('preview-note').textContent=filtered.length>500?'Aperçu : 500/'+filtered.length+' lignes. L\'export contient la totalité.':'';
+}
+
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    state.filterMode=tab.dataset.filter;
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t===tab));
+    renderTable();
+  });
+});
+
+/* ─── EXPORT CSV ─────────────────────────────── */
+document.getElementById('export-csv').addEventListener('click',()=>{
+  const h=state.headers1;
+  const rows=state.filterMode==='all'?state.results:state.results.filter(r=>r['__status']===state.filterMode);
+  const lines=[h.map(c=>'"'+(c||'').replace(/"/g,'""')+'"').join(',')];
+  rows.forEach(r=>lines.push(h.map(c=>'"'+(r[c]||'').replace(/"/g,'""')+'"').join(',')));
+  const csv='\uFEFF'+lines.join('\r\n');
+  const b64=btoa(unescape(encodeURIComponent(csv)));
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8;base64,'+b64;
+  a.download='magmi_enrichi_'+(state.filterMode==='all'?'complet':state.filterMode)+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+});
+
+/* ─── EXPORT XLSX ────────────────────────────── */
+document.getElementById('export-xlsx').addEventListener('click',()=>{
+  const h=state.headers1;
+  const rows=state.filterMode==='all'?state.results:state.results.filter(r=>r['__status']===state.filterMode);
+  const wsData=[h,...rows.map(r=>h.map(c=>r[c]||''))];
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols']=h.map((_,ci)=>{
+    const max=Math.max(...wsData.map(row=>String(row[ci]||'').length));
+    return{wch:Math.min(Math.max(max,8),45)};
+  });
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Magmi enrichi');
+  XLSX.writeFile(wb,'magmi_enrichi_'+(state.filterMode==='all'?'complet':state.filterMode)+'.xlsx');
+});
+</script>
+</body>
+</html>
