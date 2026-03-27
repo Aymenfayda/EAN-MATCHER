@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EAN Matcher — SKU + Taille</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #181818;
+    --surface2: #222222;
+    --border: #2e2e2e;
+    --border2: #3a3a3a;
+    --text: #e8e8e8;
+    --text2: #888;
+    --text3: #555;
+    --green: #3ddc84;
+    --green-dim: #1a3d2a;
+    --amber: #f0a500;
+    --amber-dim: #3a2800;
+    --red: #e05252;
+    --red-dim: #3a1818;
+    --blue: #5b9cf6;
+    --blue-dim: #162040;
+    --radius: 6px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    padding: 40px 24px;
+  }
+
+  .app { max-width: 960px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 36px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+  }
+
+  header h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  header span {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .norm-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 24px;
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .norm-bar span { color: var(--green); }
+
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+    margin-bottom: 16px;
+  }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .drop-zone {
+    border: 1px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .drop-zone:hover { border-color: var(--blue); background: var(--blue-dim); }
+  .drop-zone.loaded { border-color: var(--green); border-style: solid; background: var(--green-dim); }
+  .drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+  .drop-icon { font-size: 22px; margin-bottom: 8px; color: var(--text3); }
+  .drop-text { font-size: 12px; color: var(--text2); }
+  .drop-name { font-size: 12px; font-weight: 500; color: var(--green); font-family: 'IBM Plex Mono', monospace; }
+  .drop-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  .col-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .col-label {
+    font-size: 12px;
+    color: var(--text2);
+    min-width: 110px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  select {
+    flex: 1;
+    min-width: 140px;
+    padding: 7px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    outline: none;
+    cursor: pointer;
+  }
+
+  select:focus { border-color: var(--blue); }
+
+  .arrow { font-size: 13px; color: var(--text3); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    cursor: pointer;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text);
+    transition: background 0.12s, border-color 0.12s;
+  }
+
+  .btn:hover { background: var(--surface2); border-color: var(--text3); }
+  .btn:active { transform: scale(0.98); }
+
+  .btn-run {
+    background: var(--green);
+    color: #0a1a10;
+    border-color: var(--green);
+    font-weight: 500;
+  }
+
+  .btn-run:hover { background: #5febb0; border-color: #5febb0; }
+
+  .btn-export {
+    background: var(--blue);
+    color: #08122a;
+    border-color: var(--blue);
+    font-weight: 500;
+  }
+
+  .btn-export:hover { background: #7ab4ff; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .stat {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    text-align: center;
+  }
+
+  .stat-n { font-size: 28px; font-weight: 300; font-family: 'IBM Plex Mono', monospace; }
+  .stat-l { font-size: 11px; color: var(--text2); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-matched .stat-n { color: var(--green); }
+  .stat-notfound .stat-n { color: var(--amber); }
+  .stat-conflict .stat-n { color: var(--red); }
+
+  .table-wrap {
+    overflow-x: auto;
+    max-height: 380px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+  th {
+    background: var(--surface2);
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 500;
+    font-size: 11px;
+    color: var(--text2);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    border-bottom: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .badge-ok { background: var(--green-dim); color: var(--green); }
+  .badge-warn { background: var(--amber-dim); color: var(--amber); }
+  .badge-err { background: var(--red-dim); color: var(--red); }
+
+  .row-flex { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 8px; flex-wrap: wrap; }
+  .hidden { display: none; }
+
+  .info { font-size: 11px; color: var(--text3); margin-top: 8px; font-family: 'IBM Plex Mono', monospace; }
+
+  .filter-tabs { display: flex; gap: 6px; }
+
+  .tab {
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text2);
+    font-family: 'IBM Plex Mono', monospace;
+    transition: all 0.12s;
+  }
+
+  .tab:hover { border-color: var(--text3); color: var(--text); }
+  .tab.active { border-color: var(--text); color: var(--text); background: var(--surface2); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1>EAN Matcher</h1>
+    <span>matching par manufacturer_sku × taille normalisée</span>
+  </header>
+
+  <div class="norm-bar">
+    <span>règles de normalisation :</span>
+    N°3 / 15,5° → <span>N3</span>
+    &nbsp;|&nbsp; Bois N°5 → <span>N5</span>
+    &nbsp;|&nbsp; Hybride N°3 → <span>N3</span>
+    &nbsp;|&nbsp; 60° - 12° → <span>60°</span>
+    &nbsp;|&nbsp; 56 cm → <span>56cm</span>
+  </div>
+
+  <!-- ÉTAPE 1 -->
+  <div class="section">
+    <div class="section-title">01 — Charger les fichiers</div>
+    <div class="grid2">
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Fichier Magmi <span style="color:var(--text3);">(à enrichir)</span></div>
+        <div class="drop-zone" id="dz1">
+          <input type="file" accept=".csv,.tsv,.txt" id="f1">
+          <div class="drop-icon">↧</div>
+          <div class="drop-text" id="dt1">Glissez ou cliquez</div>
+          <div class="drop-sub">CSV · TSV · TXT</div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Fichier fournisseur <span style="color:var(--text3);">(source EAN)</span></div>
+        <div class="drop-zone" id="dz2">
+          <input type="file" accept=".csv,.tsv,.txt" id="f2">
+          <div class="drop-icon">↧</div>
+          <div class="drop-text" id="dt2">Glissez ou cliquez</div>
+          <div class="drop-sub">CSV · TSV · TXT</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 2 -->
+  <div class="section hidden" id="col-card">
+    <div class="section-title">02 — Configurer les colonnes</div>
+    <div class="col-row">
+      <span class="col-label">SKU Magmi</span>
+      <select id="key1"></select>
+      <span class="arrow">+</span>
+      <span class="col-label">Taille Magmi</span>
+      <select id="size1"></select>
+    </div>
+    <div class="col-row">
+      <span class="col-label">SKU fournisseur</span>
+      <select id="key2"></select>
+      <span class="arrow">+</span>
+      <span class="col-label">Taille fournisseur</span>
+      <select id="size2"></select>
+    </div>
+    <div class="col-row">
+      <span class="col-label">EAN cible (Magmi)</span>
+      <select id="ean-target"></select>
+      <span class="arrow">←</span>
+      <span class="col-label">EAN source (fourn.)</span>
+      <select id="ean-source"></select>
+    </div>
+    <div style="margin-top:16px;">
+      <button class="btn btn-run" id="run-btn">Lancer le matching →</button>
+    </div>
+  </div>
+
+  <!-- RÉSULTATS -->
+  <div class="hidden" id="result-section">
+    <div class="stats">
+      <div class="stat"><div class="stat-n" id="s-total">0</div><div class="stat-l">Total lignes</div></div>
+      <div class="stat stat-matched"><div class="stat-n" id="s-matched">0</div><div class="stat-l">Matchées</div></div>
+      <div class="stat stat-notfound"><div class="stat-n" id="s-notfound">0</div><div class="stat-l">Non trouvées</div></div>
+      <div class="stat stat-conflict"><div class="stat-n" id="s-conflict">0</div><div class="stat-l">Conflits EAN</div></div>
+    </div>
+    <div class="section">
+      <div class="row-flex">
+        <div class="filter-tabs">
+          <button class="tab active" data-filter="all">Tous</button>
+          <button class="tab" data-filter="matched">Matchées</button>
+          <button class="tab" data-filter="not_found">Non trouvées</button>
+          <button class="tab" data-filter="conflict">Conflits</button>
+        </div>
+        <button class="btn btn-export" id="export-btn">Exporter CSV ↓</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="t-head"></thead>
+          <tbody id="t-body"></tbody>
+        </table>
+      </div>
+      <p class="info" id="preview-note"></p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const state = { data1:[], data2:[], headers1:[], headers2:[], results:[], filterMode:'all', cols:{} };
+
+function parseSep(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (!lines.length) return { headers:[], rows:[] };
+  const seps = ['\t', ';', ','];
+  let best = ',', bestCount = 0;
+  for (const s of seps) {
+    const c = (lines[0].match(new RegExp('\\' + s, 'g')) || []).length;
+    if (c > bestCount) { bestCount = c; best = s; }
+  }
+  const headers = parseRow(lines[0], best);
+  const rows = lines.slice(1).filter(l => l.trim()).map(l => parseRow(l, best));
+  return { headers, rows };
+}
+
+function parseRow(line, sep) {
+  const res = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === sep && !inQ) { res.push(cur.trim()); cur = ''; }
+    else cur += c;
+  }
+  res.push(cur.trim());
+  return res;
+}
+
+function rowToObj(headers, row) {
+  const o = {};
+  headers.forEach((h, i) => o[h] = (row[i] || '').trim());
+  return o;
+}
+
+function extractEAN(val) {
+  if (!val) return '';
+  const m = val.match(/\d{8,13}/g);
+  if (!m) return '';
+  const eans = m.filter(e => e.length >= 8 && e.length <= 13);
+  return eans.length ? eans[eans.length - 1] : '';
+}
+
+/*
+  Règles de normalisation :
+  1. Contient N°X  → extraire uniquement "nX"  (N°3 / 15,5° → n3)
+  2. Commence par un angle suivi de tiret/slash + autre angle → garder premier angle (60° - 12° → 60)
+  3. Sinon : supprimer mots génériques, conserver chiffres + unité
+*/
+function normalizeSize(s) {
+  if (!s) return '';
+  let v = s.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .trim();
+
+  // Règle 1 : contient N°X → extraire uniquement le numéro
+  const nMatch = v.match(/n[o°º]\.?\s*(\d+)/);
+  if (nMatch) return 'n' + nMatch[1];
+
+  // Règle 2 : angle°  séparateur  autre_angle → garder premier angle
+  // ex: "60° - 12°"  "56°-12°"  "60 / 12°"
+  const angleFirst = v.match(/^(\d+(?:[.,]\d+)?)\s*°?\s*[-\/]\s*\d/);
+  if (angleFirst) return angleFirst[1];
+
+  // Cas simple angle seul : "60°" → "60"
+  const angleOnly = v.match(/^(\d+(?:[.,]\d+)?)\s*°\s*$/);
+  if (angleOnly) return angleOnly[1];
+
+  // Règle 3 : supprimer mots génériques, garder chiffres + unité cm
+  v = v
+    .replace(/bois|hybride|gaucher|droitier|femme|regular|stiff|light|graphite|acier/g, '')
+    .replace(/[°\s\/\-\.]/g, '')
+    .trim();
+  return v || s.toLowerCase().trim();
+}
+
+function readFile(file, cb) {
+  const r = new FileReader();
+  r.onload = e => cb(e.target.result);
+  r.readAsText(file, 'UTF-8');
+}
+
+function populateSel(sel, headers, preferred) {
+  sel.innerHTML = '';
+  let found = false;
+  headers.forEach(h => {
+    const o = document.createElement('option');
+    o.value = h; o.textContent = h;
+    const match = preferred.some(p => h.toLowerCase() === p || h.toLowerCase().includes(p));
+    if (match && !found) { o.selected = true; found = true; }
+    sel.appendChild(o);
+  });
+}
+
+function setupDrop(dzId, fileId, textId, num) {
+  const fi = document.getElementById(fileId);
+  const dz = document.getElementById(dzId);
+  const dt = document.getElementById(textId);
+  fi.addEventListener('change', e => {
+    const f = e.target.files[0]; if (!f) return;
+    readFile(f, text => {
+      const parsed = parseSep(text);
+      if (num === 1) { state.data1 = parsed.rows; state.headers1 = parsed.headers; }
+      else { state.data2 = parsed.rows; state.headers2 = parsed.headers; }
+      dz.classList.add('loaded');
+      dt.innerHTML = '<span class="drop-name">' + f.name + '</span><div class="drop-sub">' + parsed.rows.length + ' lignes · ' + parsed.headers.length + ' colonnes</div>';
+      checkReady();
+    });
+  });
+}
+
+function checkReady() {
+  if (state.headers1.length && state.headers2.length) {
+    document.getElementById('col-card').classList.remove('hidden');
+    const h1 = state.headers1, h2 = state.headers2;
+    populateSel(document.getElementById('key1'), h1, ['manufacturer_sku', 'sku']);
+    populateSel(document.getElementById('size1'), h1, ['size']);
+    populateSel(document.getElementById('key2'), h2, ['manufacturer_sku', 'sku']);
+    populateSel(document.getElementById('size2'), h2, ['raw_size', 'size']);
+    populateSel(document.getElementById('ean-target'), h1, ['ean']);
+    populateSel(document.getElementById('ean-source'), h2, ['ean_code', 'ean']);
+  }
+}
+
+setupDrop('dz1', 'f1', 'dt1', 1);
+setupDrop('dz2', 'f2', 'dt2', 2);
+
+document.getElementById('run-btn').addEventListener('click', () => {
+  const k1 = document.getElementById('key1').value;
+  const sz1 = document.getElementById('size1').value;
+  const k2 = document.getElementById('key2').value;
+  const sz2 = document.getElementById('size2').value;
+  const et = document.getElementById('ean-target').value;
+  const es = document.getElementById('ean-source').value;
+  state.cols = { k1, sz1, et };
+
+  const eanMap = {};
+  state.data2.forEach(row => {
+    const obj = rowToObj(state.headers2, row);
+    const sku = (obj[k2] || '').trim();
+    const size = normalizeSize(obj[sz2] || '');
+    const ean = extractEAN(obj[es] || '');
+    if (!sku || !ean) return;
+    const key = sku + '__' + size;
+    if (!eanMap[key]) eanMap[key] = [];
+    if (!eanMap[key].includes(ean)) eanMap[key].push(ean);
+  });
+
+  let matched = 0, notfound = 0, conflict = 0;
+  state.results = state.data1.map(row => {
+    const obj = rowToObj(state.headers1, row);
+    const sku = (obj[k1] || '').trim();
+    const size = normalizeSize(obj[sz1] || '');
+    const key = sku + '__' + size;
+    const eans = eanMap[key] || [];
+    let status, newEan;
+    if (!eans.length) { status = 'not_found'; newEan = ''; notfound++; }
+    else if (eans.length > 1) { status = 'conflict'; newEan = ''; conflict++; }
+    else { status = 'matched'; newEan = eans[0]; matched++; }
+    const out = { ...obj };
+    out[et] = newEan;
+    out['__status'] = status;
+    out['__size_norm'] = size;
+    out['__eans_found'] = eans.join(' | ');
+    return out;
+  });
+
+  document.getElementById('s-total').textContent = state.results.length;
+  document.getElementById('s-matched').textContent = matched;
+  document.getElementById('s-notfound').textContent = notfound;
+  document.getElementById('s-conflict').textContent = conflict;
+  state.filterMode = 'all';
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.filter === 'all'));
+  renderTable();
+  document.getElementById('result-section').classList.remove('hidden');
+  document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
+});
+
+function renderTable() {
+  const { k1, sz1, et } = state.cols;
+  const cols = ['__status', k1, sz1, '__size_norm', et, '__eans_found'];
+  const labels = { '__status': 'statut', '__size_norm': 'taille_norm', '__eans_found': 'eans_trouves' };
+  document.getElementById('t-head').innerHTML = '<tr>' + cols.map(c => '<th>' + (labels[c] || c) + '</th>').join('') + '</tr>';
+  const filtered = state.results.filter(r => state.filterMode === 'all' || r['__status'] === state.filterMode);
+  const preview = filtered.slice(0, 500);
+  document.getElementById('t-body').innerHTML = preview.map(r => {
+    const st = r['__status'];
+    const bc = st === 'matched' ? 'badge-ok' : st === 'conflict' ? 'badge-err' : 'badge-warn';
+    const bl = st === 'matched' ? 'OK' : st === 'conflict' ? 'CONFLIT' : 'MANQUANT';
+    return '<tr>' + cols.map(c => {
+      if (c === '__status') return '<td><span class="badge ' + bc + '">' + bl + '</span></td>';
+      return '<td title="' + (r[c] || '') + '">' + (r[c] || '') + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+  const note = filtered.length > 500 ? 'Aperçu limité à 500 lignes — export complet : ' + filtered.length + ' lignes.' : '';
+  document.getElementById('preview-note').textContent = note;
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    state.filterMode = tab.dataset.filter;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+    renderTable();
+  });
+});
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  const h = state.headers1;
+  const toExport = state.filterMode === 'all' ? state.results : state.results.filter(r => r['__status'] === state.filterMode);
+  const lines = [h.map(c => '"' + (c || '').replace(/"/g, '""') + '"').join(',')];
+  toExport.forEach(r => lines.push(h.map(c => '"' + (r[c] || '').replace(/"/g, '""') + '"').join(',')));
+  const csvContent = '\uFEFF' + lines.join('\r\n');
+  const b64 = btoa(unescape(encodeURIComponent(csvContent)));
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8;base64,' + b64;
+  a.download = 'magmi_enrichi_' + (state.filterMode === 'all' ? 'complet' : state.filterMode) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+});
+</script>
+</body>
+</html>
